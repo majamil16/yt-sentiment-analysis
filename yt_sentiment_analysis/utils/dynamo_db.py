@@ -64,7 +64,7 @@ class Dynamo():
       attrs = [{"AttributeName": k, "AttributeType": v} for k, v in attributes.items()]
       keys = [{"AttributeName": partition_key_nm, "KeyType": "HASH"} ]
       if sort_key_nm is not None : 
-        keys.append({"AttributeName": partition_key_nm, "KeyType": "RANGE"})
+        keys.append({"AttributeName": sort_key_nm, "KeyType": "RANGE"})
 
       schema_def = {
           "AttributeDefinitions": attrs,
@@ -104,9 +104,6 @@ class Dynamo():
         ------
         formatted_data : 
         """
-        # dynamodb_json = ddb_json.dumps(formatted_data, as_dict=True)
-        print('tyep of ddb json:')
-        # print(type(formatted_data))
         tbl = self.get_table()
         resp = tbl.put_item(Item=formatted_data)
         return resp
@@ -117,19 +114,35 @@ class Dynamo():
 
         Params
         ------
-        formatted_data : {video_id, ...rest}
+        :param dict formatted_data: {video_id, ...rest}
+        :param str src_obj: specify ['transcript', 'video']
         """
-        if src_obj not in ['a', 'b'] : 
-            logger.error("results: status must be one of %r." % ['a', 'b'])
-            raise ValueError("results: status must be one of %r." % ['a', 'b'])
+        partition_key = 'video_id'
+        sort_key = None
+        if src_obj not in ['transcript', 'video'] : 
+            logger.error("results: status must be one of %r." % ['transcript', 'video'])
+            raise ValueError("results: status must be one of %r." % ['transcript', 'video'])
 
         try:
+            # update expression will differ depending on src
+            update_exp_map = ','.join([f'{k}=:{k}' for k in formatted_data.keys() if k not in [partition_key, sort_key] ])
+            update_exp_map = f"set {update_exp_map}"
+            logger.debug(f"Update expression : ")
+            logger.debug(update_exp_map)
+
+            # exp_att_map = ','.join([f':{k}={v}' for k, v in formatted_data.items()])
+
+            exp_att_map = { f':{k}' : v for k, v in formatted_data.items() if k not in [partition_key, sort_key]  }
+
+
+            # exp_att_map = f"set {exp_att_map}"
+            logger.debug(f"Expression Attribute Map : ")
+            logger.debug(exp_att_map)
+
             response = self.get_table().update_item(
                 Key={'video_id': formatted_data['video_id']},
-                # UpdateExpression="set info.rating=:r, info.plot=:p",
-                UpdateExpression="" ,
-                # ExpressionAttributeValues={
-                #     ':r': Decimal(str(rating)), ':p': plot},
+                UpdateExpression=update_exp_map ,
+                ExpressionAttributeValues= exp_att_map,
                 ReturnValues="UPDATED_NEW")
         except ClientError as err:
             logger.error(
@@ -140,16 +153,15 @@ class Dynamo():
         else:
             return response['Attributes']
 
-    def upsert(self, formatted_data:dict):
+    def upsert(self, formatted_data:dict, src_obj:str):
         """
         Update or insert.
         """
-        # raise NotImplementedError
         ## try get_item  
         item = self.get_table().get_item(Key={'video_id':formatted_data['video_id']})
         # if found, update
         if 'Item' in item:
-            return self.update(formatted_data, 'asdf')
+            return self.update(formatted_data, src_obj)
         # else insert
         else :
             return self.insert(formatted_data)
