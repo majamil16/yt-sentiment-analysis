@@ -1,13 +1,16 @@
-from tkinter.tix import Tree
 import boto3
 import argparse
 import os
 import sys
+from botocore.exceptions import ClientError
 # import time
 # import uuid
 # from datetime import datetime
 # from decimal import Decimal
 from dynamodb_json import json_util as ddb_json
+from yt_sentiment_analysis.utils.get_logger import get_logger
+
+logger = get_logger(__name__)
 
 class Dynamo():
     """
@@ -26,7 +29,7 @@ class Dynamo():
         self.tablename = tablename
         assert self.tablename is not None, 'Initialize `tablename` or env variable `TABLE` must be present.'
 
-    def get_table(self):
+    def get_table(self) :
         return self.dynamodb.Table(self.tablename)
 
 
@@ -105,15 +108,52 @@ class Dynamo():
         print('tyep of ddb json:')
         # print(type(formatted_data))
         tbl = self.get_table()
-        print('table')
-        print('type of table : ')
-        print(type(tbl))
-
-        print(tbl)
         resp = tbl.put_item(Item=formatted_data)
-        print('type of resp : ')
-        print(type(resp))
         return resp
+    
+    def update(self, formatted_data:dict, src_obj:str):
+        """
+        DDB update existing item based on formatted_data[`video_id`]
+
+        Params
+        ------
+        formatted_data : {video_id, ...rest}
+        """
+        if src_obj not in ['a', 'b'] : 
+            logger.error("results: status must be one of %r." % ['a', 'b'])
+            raise ValueError("results: status must be one of %r." % ['a', 'b'])
+
+        try:
+            response = self.get_table().update_item(
+                Key={'video_id': formatted_data['video_id']},
+                # UpdateExpression="set info.rating=:r, info.plot=:p",
+                UpdateExpression="" ,
+                # ExpressionAttributeValues={
+                #     ':r': Decimal(str(rating)), ':p': plot},
+                ReturnValues="UPDATED_NEW")
+        except ClientError as err:
+            logger.error(
+                "Couldn't update video %s in table %s. Here's why: %s: %s",
+                formatted_data['video_id'], self.tablename,
+                err.response['Error']['Code'], err.response['Error']['Message'])
+            raise
+        else:
+            return response['Attributes']
+
+    def upsert(self, formatted_data:dict):
+        """
+        Update or insert.
+        """
+        # raise NotImplementedError
+        ## try get_item  
+        item = self.get_table().get_item(Key={'video_id':formatted_data['video_id']})
+        # if found, update
+        if 'Item' in item:
+            return self.update(formatted_data, 'asdf')
+        # else insert
+        else :
+            return self.insert(formatted_data)
+
 
 if __name__ == '__main__':
     from dotenv import load_dotenv
