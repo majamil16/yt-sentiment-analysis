@@ -1,18 +1,19 @@
 import logging
 
-def get_logger(module_nm):
+def get_logger(name=__name__, level=logging.DEBUG):
   # Create a custom logger
-  logger = logging.getLogger(module_nm)
+  logger = logging.getLogger(name)
+  logger.setLevel(level)
 
   # Create handlers
   c_handler = logging.StreamHandler()
   f_handler = logging.FileHandler('log.log')
-  c_handler.setLevel(logging.WARNING)
-  f_handler.setLevel(logging.ERROR)
+  c_handler.setLevel(logging.DEBUG)
+  f_handler.setLevel(logging.DEBUG)
 
   # Create formatters and add it to handlers
-  c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-  f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+  c_format = logging.Formatter('%(asctime)s %(filename)-18s %(name)-8s %(levelname)-8s: %(message)s')
+  f_format = logging.Formatter('%(asctime)s %(filename)-18s %(levelname)-8s: %(message)s')
   c_handler.setFormatter(c_format)
   f_handler.setFormatter(f_format)
 
