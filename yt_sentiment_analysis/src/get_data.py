@@ -1,6 +1,5 @@
 
 from __future__ import annotations
-
 from unittest import mock
 import requests
 import os
@@ -17,10 +16,8 @@ from decimal import Decimal
 
 from yt_sentiment_analysis.utils.dynamo_db import Dynamo
 
-FORMAT = '%(asctime)s %(levelname)s %(name)s:%(funcName)s %(message)s'
-
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("get_data" )
+from yt_sentiment_analysis.utils.get_logger import get_logger
+logger = get_logger(__name__)
 
 class MyCustomFormatter(Formatter):
 
@@ -187,9 +184,6 @@ def main():
             details_list = extract_video_details(data['items'])
             print(details_list)
         time.sleep(5)
-
-
-
 
 if __name__ == '__main__':
     main()
