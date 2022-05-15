@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import wraps
 import requests
 from pathlib import Path
 import time
@@ -123,51 +124,56 @@ def get_transcripts(video_ids:list, load_filepath:str=None, save_filepath:str=No
 
 def mapper(func):
     print('mapper')
-    def inner(list_of_values):
+
+    @wraps(func)
+    def inner(list_of_values: list) -> list:
         print('inner')
         return [func(x) for x in list_of_values]
+    return inner
 
 
-def extract_video_details(videos:list, format_dynamo=True) -> list[dict]:
+@mapper
+def extract_video_details(video: dict, format_dynamo=True) -> list[dict]:
     """
     Extract relevant info from the /videos api response (youtube#videoListResponse)
 
     Params
     ------
-    : json_data: API response ['items'] = list of videos returned from `get_top_videos_by_category`
+    : json_data: API response ['items'] = list of videos returned from
+        `get_top_videos_by_category`
     """
-    extracted_video_details = []
-    for vid in videos : 
-        video_id = vid['id']
-        # the 'snippet' stores a lot of info about the video
-        snip = vid['snippet'] 
-        title = snip.get('title')
-        description = snip.get('description')
-        channel_id = snip.get('channelId')
-        channel_name = snip.get('channelTitle')
-        tags = snip.get('tags')
-        category_id = snip.get('categoryId')
-        published_dt = snip.get('publishedAt')
+    # make sure input is the expected type
+    assert video['kind'] == "youtube#video"
 
-        statistics = vid['statistics']
+    # parse out required variables
+    video_id = video['id']
+    # the 'snippet' stores a lot of info about the video
+    snip = video['snippet']
+    title = snip.get('title')
+    description = snip.get('description')
+    channel_id = snip.get('channelId')
+    channel_name = snip.get('channelTitle')
+    tags = snip.get('tags')
+    category_id = snip.get('categoryId')
+    published_dt = snip.get('publishedAt')
 
-        # keys that we want formatted for DDB
-        extracted_fmt = {
-            'video_id' : video_id,
-            'title' : title,
-            'description' : description,
-            'channel_id' : channel_id,
-            'channel_name' : channel_name,
-            'tags' : tags,
-            'statistics' : statistics,
-            'category_id' : category_id,
-            'published_dt' : published_dt,
-            'insert_dt': datetime.utcnow().strftime('%m-%d-%Y')
-        }
+    statistics = video['statistics']
 
-        extracted_video_details.append(extracted_fmt) #, fmt_ddb
-    return extracted_video_details
+    # keys that we want formatted for DDB
+    extracted_fmt = {
+        'video_id': video_id,
+        'title': title,
+        'description': description,
+        'channel_id': channel_id,
+        'channel_name': channel_name,
+        'tags': tags,
+        'statistics': statistics,
+        'category_id': category_id,
+        'published_dt': published_dt,
+        'insert_dt': datetime.utcnow().strftime('%m-%d-%Y')
+    }
 
+    return extracted_fmt
 
 
 # TODO - make this into airflow pipeline
@@ -175,16 +181,16 @@ def main():
     assert YOUTUBE_API_KEY is not None
     print(YOUTUBE_API_KEY)
     # get transcripts for all categories.
-    for cat_id, cat_name in CATEGORIES.items() : 
+    for cat_id, cat_name in CATEGORIES.items():
         logger.info("Category == %s", cat_name)
         data = get_top_videos_by_category(cat_id)
-        if data :
+        if data:
             print('Data')
             print(data)
             details_list = extract_video_details(data['items'])
             print(details_list)
         time.sleep(5)
 
+
 if __name__ == '__main__':
     main()
-
