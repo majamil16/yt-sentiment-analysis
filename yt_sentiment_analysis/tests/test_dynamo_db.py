@@ -36,7 +36,8 @@ class TestDynamoDB(unittest.TestCase):
             TableName=self.client.tablename,
             KeySchema=self.table_schema["KeySchema"],
             AttributeDefinitions=self.table_schema["AttributeDefinitions"],
-            ProvisionedThroughput={"ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
+            ProvisionedThroughput={
+                "ReadCapacityUnits": 1, "WriteCapacityUnits": 1},
         )
 
         # maek sure table exists
@@ -112,7 +113,8 @@ class TestDynamoDB(unittest.TestCase):
         )
 
         # then update it
-        fmt_update = {"video_id": "test_id", "transcript": "Test updated transcript"}
+        fmt_update = {"video_id": "test_id",
+                      "transcript": "Test updated transcript"}
         self.client.update(fmt_update, src_obj="transcript")
 
         # make sure updated
@@ -196,7 +198,8 @@ class TestDynamoDB(unittest.TestCase):
             item = response["Item"]
             print(item)
 
-        upsert_itm = {**fmt_dict, 'transcript':transc_dict['transcript'], 'update_dt':transc_dict['update_dt']  }
+        upsert_itm = {
+            **fmt_dict, 'transcript': transc_dict['transcript'], 'update_dt': transc_dict['update_dt']}
 
         self.assertEquals(item, upsert_itm)
 
@@ -240,7 +243,8 @@ class TestDynamoDB(unittest.TestCase):
         if "Item" in response:
             item = response["Item"]
             print(item)
-        upsert_itm = {**fmt_dict, 'transcript':transc_dict['transcript'], 'insert_dt':transc_dict['insert_dt']  }
+        upsert_itm = {
+            **fmt_dict, 'transcript': transc_dict['transcript'], 'insert_dt': transc_dict['insert_dt']}
         self.assertEquals(item, upsert_itm)
 
 
