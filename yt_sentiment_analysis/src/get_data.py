@@ -1,18 +1,13 @@
-
 from __future__ import annotations
-from unittest import mock
 import requests
-import os
-from pathlib import Path, PurePath
-import logging
+from pathlib import Path
 import time
 from yt_sentiment_analysis.constants  import YOUTUBE_API_KEY, CATEGORIES, DATA_DIR 
 import json
 from youtube_transcript_api  import YouTubeTranscriptApi
-from youtube_transcript_api.formatters import JSONFormatter, Formatter
+from youtube_transcript_api.formatters import Formatter
 import time
 from datetime import datetime
-from decimal import Decimal
 
 from yt_sentiment_analysis.utils.dynamo_db import Dynamo
 
@@ -69,7 +64,6 @@ def get_top_videos_by_category(category_id:str=None, save:bool=False, max_result
     "regionCode": "US",
     "key" : YOUTUBE_API_KEY,
     "maxResults" : max_results,
-    # "videoCategoryId" : category_id
     }
     # add category_id if it is passed in
     if category_id : 
@@ -126,6 +120,12 @@ def get_transcripts(video_ids:list, load_filepath:str=None, save_filepath:str=No
             json_file.write(json_formatted)
     return json
 
+
+def mapper(func):
+    print('mapper')
+    def inner(list_of_values):
+        print('inner')
+        return [func(x) for x in list_of_values]
 
 
 def extract_video_details(videos:list, format_dynamo=True) -> list[dict]:
