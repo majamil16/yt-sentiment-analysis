@@ -185,10 +185,7 @@ def main():
         logger.info("Category == %s", cat_name)
         data = get_top_videos_by_category(cat_id)
         if data:
-            print('Data')
-            print(data)
             details_list = extract_video_details(data['items'])
-            print(details_list)
         time.sleep(5)
 
 
