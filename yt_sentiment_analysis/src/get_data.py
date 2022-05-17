@@ -9,7 +9,6 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import Formatter
 from datetime import datetime
 
-# from yt_sentiment_analysis.utils.dynamo_db import Dynamo
 
 from yt_sentiment_analysis.utils.get_logger import get_logger
 logger = get_logger(__name__)
@@ -20,10 +19,12 @@ class MyCustomFormatter(Formatter):
     def format_transcript(self, video_id: str, transcript, **kwargs):
         # Do your custom work in here, but return a string.
         fmt = {video_id: transcript}
-        return self.format_transcripts([fmt])
+        return self.format_transcripts([fmt], **kwargs)
 
     def format_transcripts(self, transcripts, **kwargs):
         print('in my formatter')
+        print('formatter kwargs')
+        print(kwargs)
         # Do your custom work in here to format a list of transcripts,
         # but return a string.
         transcripts_fmt = []
@@ -45,9 +46,11 @@ class MyCustomFormatter(Formatter):
                 # append the single transcript dict to the list of transcripts
                 transcripts_fmt.append(transcript_fmt)
         if kwargs.get('as_list'):
+            logger.debug('returning transcripts_fmt as list')
             t0_type = type(transcripts_fmt[0])
             logger.debug(f'format_transcripts - as_list=True {t0_type}')
             return transcripts_fmt
+        logger.debug('returning transcripts_fmt as json str')
         return json.dumps(transcripts_fmt)
 
 
@@ -116,10 +119,10 @@ def get_transcripts(video_ids: list,
     Returns:
     --------
     :json_formatted
+    :video_ids_not_found : list
 
     """
-    print('KWSRGS =')
-    print(kwargs)
+
     if load_filepath:
         # If file path is specified, return
         with open(load_filepath, 'r') as f:
@@ -127,11 +130,13 @@ def get_transcripts(video_ids: list,
             loaded_ids = loaded.keys()
             return loaded, loaded_ids
     transcripts, video_ids_not_found = YouTubeTranscriptApi.get_transcripts(video_ids)
-
+    # args_str = '_'.join(video_ids)
+    # with open(DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json', 'w') as fp :
+    #     json.dump(transcripts, fp)
     formatter = MyCustomFormatter()
 
     # turns the transcript into a JSON string.
-    json_formatted = formatter.format_transcripts(transcripts, kwargs=kwargs)
+    json_formatted = formatter.format_transcripts(transcripts, **kwargs)
     # Now we can write it out to a file.
     if save_filepath is not None:
         with open(save_filepath, 'w', encoding='utf-8') as json_file:
