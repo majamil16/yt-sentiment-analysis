@@ -9,24 +9,32 @@ from yt_sentiment_analysis.utils.get_logger import get_logger
 logger = get_logger(__name__)
 
 
-def mocked_requests_get_youtuberesp(*args, **kwargs):
+class MockResponse:
     """
     This method will be used by the mock to replace requests.get
     https://stackoverflow.com/questions/15753390/how-can-i-mock-requests-and-the-response
     """
-    class MockResponse:
-        print("ARGS")
-        print(args)
-        print("KWARS")
-        print(kwargs)
 
-        def __init__(self, json_data, status_code):
-            self.json_data = json_data
-            self.status_code = status_code
+    def __init__(self, json_data, status_code):
+        self.json_data = json_data
+        self.status_code = status_code
 
-        def json(self):
-            return self.json_data
+    def json(self):
+        return self.json_data
 
+
+def mocked_youtube_transcript_api(*args, **kwargs):
+    args_str = '_'.join(args[0])
+    fpath = DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json'
+    with open(fpath, 'r') as fp:
+        transcripts_resp = json.load(fp)
+        print('tyep of transcript_resp')
+        print(type(transcripts_resp))
+        not_found = []
+        return transcripts_resp, not_found
+
+
+def mocked_requests_get_youtuberesp(*args, **kwargs):
     params = kwargs['params']
     # Mock out all the YT API Responses expected
     # No params passed (get all videoCategoryId)
@@ -41,8 +49,8 @@ def mocked_requests_get_youtuberesp(*args, **kwargs):
             with open(datapath, 'r') as fp:
                 rsp = json.load(fp)
                 return MockResponse(rsp, 200)
-    # elif args[0] == 'http://someotherurl.com/anothertest.json':
-    #     return MockResponse({"key2": "value2"}, 200)
+    elif args[0] == 'https://youtube.googleapis.com/youtube/v3/transcripts':
+        return MockResponse({"key2": "value2"}, 200)
 
     return MockResponse(None, 404)
 
@@ -78,9 +86,19 @@ class TestGetData(unittest.TestCase):
         with self.assertRaises(AssertionError):
             get_top_videos_by_category(category_id='9171')
 
-    def test_get_transcripts(self):
-        transcripts = get_transcripts(self.video_ids)
-        raise NotImplementedError
+    @patch('youtube_transcript_api.YouTubeTranscriptApi.get_transcripts',
+           side_effect=mocked_youtube_transcript_api)
+    def test_get_transcripts(self, mock_get):
+        """ get transcripts for `self.video_ids` """
+        kwargs = {'as_list': True}
+        transcripts, ids_not_found = get_transcripts(self.video_ids, **kwargs)
+
+        t0 = transcripts[0]
+        t1 = transcripts[1]
+        print(t0)
+        # make sure formatting is ok
+        self.assertEqual(set(list(t0.keys())), set(['transcript', 'id']))
+        self.assertEqual(set(list(t1.keys())), set(['transcript', 'id']))
 
     @patch('requests.get', side_effect=mocked_requests_get_youtuberesp)
     def test_get_top_videos_by_category__none_category_id(self, mock_get):
