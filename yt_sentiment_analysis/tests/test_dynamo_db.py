@@ -1,7 +1,6 @@
 import unittest
 import json
 
-from responses import upsert
 from yt_sentiment_analysis.constants import DATA_DIR
 from yt_sentiment_analysis.utils.dynamo_db import Dynamo
 from yt_sentiment_analysis.utils.get_logger import get_logger
