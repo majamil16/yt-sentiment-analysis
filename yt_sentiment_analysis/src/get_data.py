@@ -9,8 +9,9 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import Formatter
 from datetime import datetime
 
-
 from yt_sentiment_analysis.utils.get_logger import get_logger
+from yt_sentiment_analysis.utils.dynamo_db import Dynamo
+
 logger = get_logger(__name__)
 
 
@@ -202,13 +203,16 @@ def extract_video_details(video: dict,
 # TODO - make this into airflow pipeline
 def main():
     assert YOUTUBE_API_KEY is not None
-    print(YOUTUBE_API_KEY)
+    # initialize Dynamo client
+    dynamo = Dynamo()
     # get transcripts for all categories.
     for cat_id, cat_name in CATEGORIES.items():
         logger.info("Category == %s", cat_name)
         data = get_top_videos_by_category(cat_id)
         if data:
             details_list = extract_video_details(data['items'])
+            # formatted_details = [dynamo.format(x) for x in details_list]
+            # dynamo.ins
         time.sleep(5)
 
 
