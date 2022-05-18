@@ -9,8 +9,10 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import Formatter
 from datetime import datetime
 
+from yt_sentiment_analysis.utils.decorators import mapper
 from yt_sentiment_analysis.utils.get_logger import get_logger
 from yt_sentiment_analysis.utils.dynamo_db import Dynamo
+
 
 logger = get_logger(__name__)
 
@@ -145,16 +147,6 @@ def get_transcripts(video_ids: list,
     return json_formatted, video_ids_not_found
 
 
-def mapper(func):
-    print('mapper')
-
-    @wraps(func)
-    def inner(list_of_values: list) -> list:
-        print('inner')
-        return [func(x) for x in list_of_values]
-    return inner
-
-
 @mapper
 def extract_video_details(video: dict,
                           format_dynamo=True) -> list[dict]:
@@ -200,21 +192,38 @@ def extract_video_details(video: dict,
     return extracted_fmt
 
 
-# TODO - make this into airflow pipeline
-def main():
+def pipeline():
     assert YOUTUBE_API_KEY is not None
     # initialize Dynamo client
     dynamo = Dynamo()
-    # get transcripts for all categories.
+    # Pipeline
+
+    # 1. for each category in CATEGORIES, get the top_videos_by_category
+    invalid_categories = []  # store categories that returned no data
     for cat_id, cat_name in CATEGORIES.items():
         logger.info("Category == %s", cat_name)
         data = get_top_videos_by_category(cat_id)
         if data:
+            # 2. Extract the details for each video
             details_list = extract_video_details(data['items'])
-            # formatted_details = [dynamo.format(x) for x in details_list]
+            # 3. Insert all into DDB
+            dynamo.insert()
+        else:
+            invalid_categories.append(cat_id)
             # dynamo.ins
         time.sleep(5)
 
+
+
+    
+    
+# 4. for each video, get its transcript
+    # 5. upsert transcript into existing video 
+
+
+# TODO - make this into airflow pipeline
+def main():
+    pipeline()
 
 if __name__ == '__main__':
     main()
