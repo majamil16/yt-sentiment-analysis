@@ -9,8 +9,28 @@ from botocore.exceptions import ClientError
 # from decimal import Decimal
 from dynamodb_json import json_util as ddb_json
 from yt_sentiment_analysis.utils.get_logger import get_logger
+from functools import wraps
 
 logger = get_logger(__name__)
+
+
+def map_insert(f):
+    print('wrapper')
+    print(f'in {__name__}')
+
+    @wraps(f)
+    def inner(self, map, *args, **kwargs):
+        print(f'>>in {__name__}')
+
+        # if list of args videos passed:
+        if isinstance(map, dict):
+            return f(self, map, *args, **kwargs)
+        # if just 1 passed
+        elif isinstance(map, list):
+            return [f(self, m, *args, **kwargs) for m in map]
+        else:
+            raise ValueError("unsupported")
+    return inner
 
 
 class Dynamo():
@@ -28,6 +48,7 @@ class Dynamo():
         """
         self.dynamodb = boto3.resource('dynamodb')
         self.tablename = tablename
+        self._pk = 'video_id' # partition key
         assert self.tablename is not None, 'Initialize `tablename` or env variable `TABLE` must be present.'
 
     def get_table(self):
@@ -99,7 +120,8 @@ class Dynamo():
         print(dynamodb_json)
         return dynamodb_json
 
-    def insert(self, formatted_data: dict):
+    @map_insert
+    def insert(self, formatted_data: dict, return_id=True):
         """
         DDB insert of formatted_data
 
@@ -108,7 +130,10 @@ class Dynamo():
         formatted_data :
         """
         tbl = self.get_table()
-        resp = tbl.put_item(Item=formatted_data)
+        resp = tbl.put_item(Item=formatted_data, ReturnValues='ALL_OLD')
+
+        if return_id:
+            return formatted_data[self._pk]
         return resp
 
     def update(self, formatted_data: dict, src_obj: str):
@@ -159,6 +184,7 @@ class Dynamo():
         else:
             return response['Attributes']
 
+    @map_insert
     def upsert(self, formatted_data: dict, src_obj: str):
         """
         Update or insert.
