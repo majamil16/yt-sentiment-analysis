@@ -78,7 +78,9 @@ class TestDynamoDB(unittest.TestCase):
                 "insert_dt": datetime.utcnow().strftime("%m-%d-%Y"),
             }
 
-            self.client.insert(fmt_dict)
+            inserted = self.client.insert(fmt_dict)
+            # make sure inserted response
+            self.assertEqual(inserted, vid["id"])
 
             # make sure the item was inserted ...
             table = self.client.get_table()
@@ -104,6 +106,45 @@ class TestDynamoDB(unittest.TestCase):
             # self.assertTrue('published_dt' in item)
             # self.assertTrue('insert_dt' in item)
 
+    def test_insert__videos_list(self):
+        """
+        Test inserting a list of videos (@map_insert decorator makes this possible)
+        Test inserting /videos endpoint data into DynamoDB
+        """
+        vid_list = []
+        # id_to_ind_map = {}
+        for ind, vid in enumerate(self.videos_by_category_data):
+            fmt_dict = {
+                "video_id": vid["id"],
+                "title": vid["snippet"]["title"],
+                "description": vid["snippet"]["description"],
+                "channel_id": vid["snippet"]["channelId"],
+                "channel_name": vid["snippet"]["channelTitle"],
+                "tags": vid["snippet"].get("tags"),
+                "statistics": ["statistics"],
+                "category_id": vid["snippet"]["categoryId"],
+                "published_dt": vid["snippet"]["publishedAt"],
+                "insert_dt": datetime.utcnow().strftime("%m-%d-%Y"),
+            }
+            vid_list.append(fmt_dict)
+            # id_to_ind_map[vid["id"]] = ind
+
+        self.client.insert(vid_list)
+
+        # make sure the item was inserted ...
+        table = self.client.get_table()
+        for ind, vid in enumerate(self.videos_by_category_data):
+            response = table.get_item(
+                Key={
+                    "video_id": vid["id"],
+                }
+            )
+            if "Item" in response:
+                item = response["Item"]
+
+            # assert we get back the same object.
+            self.assertEquals(vid_list[ind], item)
+
     def test_update__transcripts(self):
         # first insert a transcript
         table = self.client.get_table()
@@ -128,6 +169,12 @@ class TestDynamoDB(unittest.TestCase):
         self.assertEquals(item, fmt_update)
         self.assertEquals(item['transcript'], "Test updated transcript")
 
+    def test_update__transcripts__list(self):
+        raise NotImplementedError
+        """
+        Test passing a list of transcripts into upsert (@map_insert makes this possible)
+        """
+
     def test_insert__transcripts(self):
         """
         Test inserting Youtube Transcript data into DynamoDB
@@ -139,7 +186,7 @@ class TestDynamoDB(unittest.TestCase):
                 "insert_dt": datetime.utcnow().strftime("%m-%d-%Y"),
             }
 
-            self.client.insert(fmt_dict)
+            self.client.insert(fmt_dict, return_id=False)
 
             # make sure the item was inserted ...
             table = self.client.get_table()
