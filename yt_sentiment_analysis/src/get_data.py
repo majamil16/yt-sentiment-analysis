@@ -1,5 +1,4 @@
 from __future__ import annotations
-from functools import wraps
 import requests
 from pathlib import Path
 import time
@@ -133,9 +132,11 @@ def get_transcripts(video_ids: list,
             loaded_ids = loaded.keys()
             return loaded, loaded_ids
     transcripts, video_ids_not_found = YouTubeTranscriptApi.get_transcripts(video_ids)
-    # args_str = '_'.join(video_ids)
-    # with open(DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json', 'w') as fp :
-    #     json.dump(transcripts, fp)
+    if save_filepath:
+        args_str = '_'.join(video_ids)
+        # if a save_filepath is specified, save the data there.
+        with open(DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json', 'w') as fp :
+            json.dump(transcripts, fp)
     formatter = MyCustomFormatter()
 
     # turns the transcript into a JSON string.
@@ -200,30 +201,33 @@ def pipeline():
 
     # 1. for each category in CATEGORIES, get the top_videos_by_category
     invalid_categories = []  # store categories that returned no data
+    transc_not_found = []
+    n = 0
     for cat_id, cat_name in CATEGORIES.items():
+        if n >= 2:
+            return invalid_categories
         logger.info("Category == %s", cat_name)
         data = get_top_videos_by_category(cat_id)
         if data:
             # 2. Extract the details for each video
             details_list = extract_video_details(data['items'])
             # 3. Insert all into DDB
-            dynamo.insert()
+            inserted_video_ids = dynamo.insert(details_list)
+            # 4. Get transcript for all ^ ids
+            transcripts, not_found = get_transcripts(inserted_video_ids)
+            transc_not_found.extend(not_found)
+            # 5. upsert transcript into existing videos
+            dynamo.upsert(transcripts)
         else:
             invalid_categories.append(cat_id)
-            # dynamo.ins
-        time.sleep(5)
-
-
-
-    
-    
-# 4. for each video, get its transcript
-    # 5. upsert transcript into existing video 
+        time.sleep(2)
+        n += 1
 
 
 # TODO - make this into airflow pipeline
 def main():
     pipeline()
+
 
 if __name__ == '__main__':
     main()
