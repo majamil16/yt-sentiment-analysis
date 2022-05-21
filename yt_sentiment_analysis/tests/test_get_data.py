@@ -37,6 +37,16 @@ def mocked_youtube_transcript_api(*args, **kwargs):
         not_found = []
         return transcripts_resp, not_found
 
+def mocked_youtube_transcript_api__not_found(*args, **kwargs):
+    """ Mock the Youtube Transcript API with a 'not found' list reunred. """
+    args_str = '_'.join(args[0])
+    fpath = DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json'
+    with open(fpath, 'r') as fp:
+        transcripts_resp = json.load(fp)
+        print('tyep of transcript_resp')
+        not_found = ['testid_000']
+        return transcripts_resp, not_found
+
 
 def mocked_requests_get_youtuberesp(*args, **kwargs):
     params = kwargs['params']
@@ -84,6 +94,7 @@ class TestGetData(unittest.TestCase):
         with open(transcript_path, "r") as f:
             self.transcript_data = json.load(f)
 
+    # TODO - build out this test more.
     @patch('requests.get', side_effect=mocked_requests_get_youtuberesp)
     def test_get_top_videos_by_category__with_category_id(self, mock_get):
         """ videos from specific `category_id` """
@@ -91,6 +102,7 @@ class TestGetData(unittest.TestCase):
         # the mocked yt api response
         self.assertEqual(json_data, self.full_videos_by_category_data)
 
+    # TODO - build out this test more.
     @patch('requests.get', side_effect=mocked_requests_get_youtuberesp)
     def test_get_top_videos_by_category__bad_category_id(self, mock_get):
         """ `category_id` not valid """
@@ -114,6 +126,21 @@ class TestGetData(unittest.TestCase):
         self.assertEqual(set(list(t0.keys())), set(['transcript', 'video_id']))
         self.assertEqual(set(list(t1.keys())), set(['transcript', 'video_id']))
 
+    @patch('youtube_transcript_api.YouTubeTranscriptApi.get_transcripts',
+           side_effect=mocked_youtube_transcript_api__not_found)
+    def test_get_transcripts__with_ids_not_found(self, mock_get):
+        """ get transcripts for `self.video_ids` """
+        kwargs = {'as_list': True}
+        transcripts, ids_not_found = get_transcripts(self.video_ids, **kwargs)
+
+        t0 = transcripts[0]
+        t1 = transcripts[1]
+
+        self.assertEqual(set(list(t0.keys())), set(['transcript', 'video_id']))
+        self.assertEqual(set(list(t1.keys())), set(['transcript', 'video_id']))
+        self.assertIn('testid_000', ids_not_found)
+
+    # TODO - build out this test more.
     @patch('requests.get', side_effect=mocked_requests_get_youtuberesp)
     def test_get_top_videos_by_category__none_category_id(self, mock_get):
         json_data = get_top_videos_by_category()
