@@ -15,19 +15,27 @@ logger = get_logger(__name__)
 
 
 def map_insert(f):
-    print('wrapper')
-    print(f'in {__name__}')
+    # print('wrapper')
+    # print(f'in {__name__}')
 
     @wraps(f)
     def inner(self, map, *args, **kwargs):
-        print(f'>>in {__name__}')
+        # print(f'>>in {__name__}')
 
         # if list of args videos passed:
         if isinstance(map, dict):
             return f(self, map, *args, **kwargs)
         # if just 1 passed
         elif isinstance(map, list):
-            return [f(self, m, *args, **kwargs) for m in map]
+            list_to_return = []
+            for m in map:
+                logger.debug('m in map:')
+                logger.debug(m)
+                mapped_result = f(self, m, *args, **kwargs)
+                logger.debug(mapped_result)
+                list_to_return.append(mapped_result)
+            # return [f(self, m, *args, **kwargs) for m in map]
+            return list_to_return
         else:
             raise ValueError("unsupported")
     return inner
@@ -136,22 +144,16 @@ class Dynamo():
             return formatted_data[self._pk]
         return resp
 
-    def update(self, formatted_data: dict, src_obj: str):
+    def update(self, formatted_data: dict):
         """
         DDB update existing item based on formatted_data[`video_id`]
 
         Params
         ------
         :param dict formatted_data: {video_id, ...rest}
-        :param str src_obj: specify ['transcript', 'video']
         """
         partition_key = 'video_id'
         sort_key = None
-        if src_obj not in ['transcript', 'video']:
-            logger.error("results: status must be one of %r, %r."
-                         % ['transcript', 'video'])
-            raise ValueError("results: status must be one of %r, %r."
-                             % ['transcript', 'video'])
 
         try:
             # update expression will differ depending on src
@@ -185,7 +187,7 @@ class Dynamo():
             return response['Attributes']
 
     @map_insert
-    def upsert(self, formatted_data: dict, src_obj: str):
+    def upsert(self, formatted_data: dict):
         """
         Update or insert.
         """
@@ -193,7 +195,7 @@ class Dynamo():
         item = self.get_table().get_item(Key={'video_id': formatted_data['video_id']})
         # if found, update
         if 'Item' in item:
-            return self.update(formatted_data, src_obj)
+            return self.update(formatted_data)
         # else insert
         else:
             return self.insert(formatted_data)
@@ -214,7 +216,7 @@ if __name__ == '__main__':
     elif args.create and args.drop:
         print('both')
     elif args.create:
-        attributes = {"video_id": "S", "transcript": "S", "category_id": "S", "category_nm": "S"}
+        attributes = {"video_id": "S"} #, "transcript": "S", "category_id": "S", "category_nm": "S"
         dynamo_table = client.create_ddb_table(attributes=attributes, partition_key_nm='video_id')
         print("Table status:", dynamo_table.table_status)
     elif args.drop:

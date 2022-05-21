@@ -155,7 +155,7 @@ class TestDynamoDB(unittest.TestCase):
         # then update it
         fmt_update = {"video_id": "test_id",
                       "transcript": "Test updated transcript"}
-        self.client.update(fmt_update, src_obj="transcript")
+        self.client.update(fmt_update)
 
         # make sure updated
         response = table.get_item(
@@ -169,6 +169,7 @@ class TestDynamoDB(unittest.TestCase):
         self.assertEquals(item, fmt_update)
         self.assertEquals(item['transcript'], "Test updated transcript")
 
+    @unittest.skip("Skip this test")
     def test_update__transcripts__list(self):
         raise NotImplementedError
         """
@@ -232,7 +233,7 @@ class TestDynamoDB(unittest.TestCase):
             "update_dt": datetime.utcnow().strftime("%m-%d-%Y"),
         }
 
-        self.client.upsert(transc_dict, src_obj="video")
+        self.client.upsert(transc_dict)
 
         # retrieve the upserted item
         response = self.client.get_table().get_item(
@@ -279,7 +280,7 @@ class TestDynamoDB(unittest.TestCase):
             "update_dt": datetime.utcnow().strftime("%m-%d-%Y"),
         }
 
-        self.client.upsert(fmt_dict, src_obj="transcript")
+        self.client.upsert(fmt_dict)
         # retrieve the upserted item
         response = self.client.get_table().get_item(
             Key={
