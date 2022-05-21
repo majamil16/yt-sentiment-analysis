@@ -10,6 +10,7 @@ from datetime import datetime
 
 from yt_sentiment_analysis.utils.decorators import mapper
 from yt_sentiment_analysis.utils.get_logger import get_logger
+from yt_sentiment_analysis.utils.utils import print_results
 from yt_sentiment_analysis.utils.dynamo_db import Dynamo
 
 
@@ -43,14 +44,14 @@ class MyCustomFormatter(Formatter):
                 print(joined_tr)
                 # transcripts_fmt[id] = joined_tr
 
-                transcript_fmt['id'] = id
+                transcript_fmt['video_id'] = id
                 transcript_fmt['transcript'] = joined_tr
                 # append the single transcript dict to the list of transcripts
                 transcripts_fmt.append(transcript_fmt)
         if kwargs.get('as_list'):
             logger.debug('returning transcripts_fmt as list')
-            t0_type = type(transcripts_fmt[0])
-            logger.debug(f'format_transcripts - as_list=True {t0_type}')
+            # t0_type = type(transcripts_fmt[0])
+            # logger.debug(f'format_transcripts - as_list=True {t0_type}')
             return transcripts_fmt
         logger.debug('returning transcripts_fmt as json str')
         return json.dumps(transcripts_fmt)
@@ -58,7 +59,7 @@ class MyCustomFormatter(Formatter):
 
 def get_top_videos_by_category(category_id: str = None,
                                save: bool = False,
-                               max_results: int = 50) -> dict:
+                               max_results: int = 10) -> dict:
     """
     Get the top videos for the specified `category_id`.
 
@@ -70,6 +71,7 @@ def get_top_videos_by_category(category_id: str = None,
     : category_id: YouTube API videoCategoryId of videos to get.
     : max_results : Max results
     """
+    print(f'>>in {__name__}')
     if category_id is not None:
         assert category_id in list(CATEGORIES.keys()), "enter a valid category_id"
     url = 'https://youtube.googleapis.com/youtube/v3/videos'
@@ -88,7 +90,6 @@ def get_top_videos_by_category(category_id: str = None,
     r = requests.get(url, params=params)
     if r.status_code == 200:
         data = r.json()
-        print("JSON KEYS")
         if save:
             if category_id:
                 fname = 'ytapiresp_get_top_videos_by_category_{category_id}.json'
@@ -118,6 +119,10 @@ def get_transcripts(video_ids: list,
     :load_filepath (opt): file path to load data from instead.
     :save_filepath (opt): file path to save data to.
 
+    kwargs:
+    ------
+    as_list: True or False -
+
     Returns:
     --------
     :json_formatted
@@ -131,11 +136,11 @@ def get_transcripts(video_ids: list,
             loaded = json.load(f)
             loaded_ids = loaded.keys()
             return loaded, loaded_ids
-    transcripts, video_ids_not_found = YouTubeTranscriptApi.get_transcripts(video_ids)
+    transcripts, video_ids_not_found = YouTubeTranscriptApi.get_transcripts(video_ids, continue_after_error=True)
     if save_filepath:
         args_str = '_'.join(video_ids)
         # if a save_filepath is specified, save the data there.
-        with open(DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json', 'w') as fp :
+        with open(DATA_DIR / 'test_data' / f'YouTubeTranscriptApi_get_transcripts_{args_str}.json', 'w') as fp:
             json.dump(transcripts, fp)
     formatter = MyCustomFormatter()
 
@@ -202,26 +207,38 @@ def pipeline():
     # 1. for each category in CATEGORIES, get the top_videos_by_category
     invalid_categories = []  # store categories that returned no data
     transc_not_found = []
-    n = 0
-    for cat_id, cat_name in CATEGORIES.items():
-        if n >= 2:
-            return invalid_categories
+    # n = 0
+    # for cat_id, cat_name in CATEGORIES.items():
+    for n, cat_id in enumerate(list(CATEGORIES.keys())[:2]):
+        print(f'n is => {n}')
+        cat_name = CATEGORIES[cat_id]
         logger.info("Category == %s", cat_name)
         data = get_top_videos_by_category(cat_id)
         if data:
+            print('We have data!')
             # 2. Extract the details for each video
+            logger.debug(f"2. Extract the details for each video in Category {cat_name} - {cat_id}")
             details_list = extract_video_details(data['items'])
             # 3. Insert all into DDB
             inserted_video_ids = dynamo.insert(details_list)
+            logger.debug('Inserted video ids?')
+            logger.debug(inserted_video_ids)
+            # continue
             # 4. Get transcript for all ^ ids
-            transcripts, not_found = get_transcripts(inserted_video_ids)
+            transcripts, not_found = get_transcripts(inserted_video_ids, as_list=True)
             transc_not_found.extend(not_found)
             # 5. upsert transcript into existing videos
-            dynamo.upsert(transcripts)
+            us = dynamo.upsert(transcripts)
+            logger.debug('Upsert')
+            logger.debug(us)
         else:
+            logger.error(f"No data for {cat_id}")
             invalid_categories.append(cat_id)
         time.sleep(2)
         n += 1
+    print_results(invalid_categories, "Invalid Categories")
+    print_results(transc_not_found, "Transcripts Not Found")
+    return invalid_categories
 
 
 # TODO - make this into airflow pipeline
