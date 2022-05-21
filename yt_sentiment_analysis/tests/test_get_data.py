@@ -6,6 +6,8 @@ from yt_sentiment_analysis.src.get_data import extract_video_details, get_transc
 from yt_sentiment_analysis.src.get_data import get_top_videos_by_category
 from yt_sentiment_analysis.utils.get_logger import get_logger
 
+from youtube_transcript_api._errors import NoTranscriptFound
+
 logger = get_logger(__name__)
 
 
@@ -30,6 +32,8 @@ def mocked_youtube_transcript_api(*args, **kwargs):
         transcripts_resp = json.load(fp)
         print('tyep of transcript_resp')
         print(type(transcripts_resp))
+        print("keys:")
+        print(transcripts_resp.keys())
         not_found = []
         return transcripts_resp, not_found
 
@@ -53,6 +57,13 @@ def mocked_requests_get_youtuberesp(*args, **kwargs):
         return MockResponse({"key2": "value2"}, 200)
 
     return MockResponse(None, 404)
+
+
+def mocked_yttranscriptapi_NoTranscriptFound(*args, **kwargs):
+    """ Mock response - when no transcript exists for a video. """
+    print('ARGS:')
+    print(args)
+    # raise NoTranscriptFound(video_id=)
 
 
 class TestGetData(unittest.TestCase):
@@ -97,8 +108,11 @@ class TestGetData(unittest.TestCase):
         t1 = transcripts[1]
         print(t0)
         # make sure formatting is ok
-        self.assertEqual(set(list(t0.keys())), set(['transcript', 'id']))
-        self.assertEqual(set(list(t1.keys())), set(['transcript', 'id']))
+        print('to keys?')
+        print(set(list(t0.keys())))
+
+        self.assertEqual(set(list(t0.keys())), set(['transcript', 'video_id']))
+        self.assertEqual(set(list(t1.keys())), set(['transcript', 'video_id']))
 
     @patch('requests.get', side_effect=mocked_requests_get_youtuberesp)
     def test_get_top_videos_by_category__none_category_id(self, mock_get):
@@ -130,6 +144,22 @@ class TestGetData(unittest.TestCase):
         self.assertTrue('category_id' in test_out)
         self.assertTrue('published_dt' in test_out)
         self.assertTrue('insert_dt' in test_out)
+
+    @unittest.skip("skip this test.")
+    @patch('youtube_transcript_api.YouTubeTranscriptApi.get_transcripts',
+           side_effect=mocked_yttranscriptapi_NoTranscriptFound)
+    def test_get_transcripts__raises_NoTranscriptFound(self, mock_get):
+        """ get transcripts for `self.video_ids` """
+        kwargs = {'as_list': True}
+        transcripts, ids_not_found = get_transcripts(self.video_ids, **kwargs)
+
+        t0 = transcripts[0]
+        t1 = transcripts[1]
+        print(t0)
+        # make sure formatting is ok
+        self.assertEqual(set(list(t0.keys())), set(['transcript', 'video_id']))
+        self.assertEqual(set(list(t1.keys())), set(['transcript', 'video_id']))
+
 
 
 if __name__ == "__main__":
