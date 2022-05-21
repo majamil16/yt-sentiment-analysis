@@ -22,3 +22,11 @@ Project aim:
     python -m unittest <module_name>
 
 Fill in more details later.
+
+## Data
+
+* /dynamodb: table_schema.json. Contains the schema for the dynamodb table.
+
+* /raw_dynamodb_data: csv files for quick POC / model dev (exported straight from dynamodb via console)
+
+* /test_data: data required for tests (sample API responses, etc.)
